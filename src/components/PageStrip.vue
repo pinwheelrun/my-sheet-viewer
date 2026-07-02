@@ -21,7 +21,7 @@ const stripRef = shallowRef(null)
 const windowStart = ref(1)
 const windowEnd = ref(1)
 
-const BTN_WIDTH = 32 // 28px button + 4px gap
+const BTN_WIDTH = 60 // 56px button + 4px gap
 
 function recalcWindow() {
   if (!stripRef.value || props.totalPages === 0) return
