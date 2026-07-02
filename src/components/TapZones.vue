@@ -16,20 +16,14 @@ defineEmits(['prev', 'next'])
 <template>
   <template v-if="fileLoaded">
     <!-- Tap zones -->
-    <div class="tap-zone tap-prev" @click="$emit('prev')"></div>
-    <div class="tap-zone tap-next" @click="$emit('next')"></div>
+    <div class="tap-zone tap-prev" @pointerdown.prevent="$emit('prev')"></div>
+    <div class="tap-zone tap-next" @pointerdown.prevent="$emit('next')"></div>
 
     <!-- Arrow hints -->
-    <div
-      class="arrow-hint arrow-hint-prev"
-      :style="{ opacity: currentPage > 1 ? 1 : 0 }"
-    >
+    <div class="arrow-hint arrow-hint-prev" :style="{ opacity: currentPage > 1 ? 1 : 0 }">
       ‹
     </div>
-    <div
-      class="arrow-hint arrow-hint-next"
-      :style="{ opacity: currentPage < totalPages ? 1 : 0 }"
-    >
+    <div class="arrow-hint arrow-hint-next" :style="{ opacity: currentPage < totalPages ? 1 : 0 }">
       ›
     </div>
   </template>
@@ -40,21 +34,24 @@ defineEmits(['prev', 'next'])
 .tap-zone {
   position: absolute;
   left: 0;
-  width: 15%;
+  width: 30%;
   z-index: 10;
   cursor: pointer;
+  touch-action: none;
 }
 
 .tap-prev {
   top: 0;
-  height: 30%;
+  height: 40%;
   background: rgba(80, 180, 120, 0.15);
+  touch-action: none;
 }
 
 .tap-next {
-  top: 30%;
+  top: 40%;
   bottom: 0;
   background: rgba(60, 130, 220, 0.15);
+  touch-action: none;
 }
 
 /* Arrow hints — left side only */

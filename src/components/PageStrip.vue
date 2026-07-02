@@ -64,31 +64,18 @@ function goTo(n) {
     <button class="open-btn" @click="$emit('open-file')">Open PDF</button>
 
     <div v-if="fileLoaded" class="page-strip-wrap">
-      <button
-        class="strip-nav"
-        :disabled="currentPage <= 1"
-        @click="stripPrev"
-      >
+      <button class="strip-nav" :disabled="currentPage <= 1" @pointerdown.prevent="stripPrev">
         ‹
       </button>
 
       <div ref="stripRef" class="page-strip">
-        <button
-          v-for="i in windowEnd - windowStart + 1"
-          :key="windowStart + i - 1"
-          class="strip-btn"
-          :class="{ active: windowStart + i - 1 === currentPage }"
-          @click="goTo(windowStart + i - 1)"
-        >
+        <button v-for="i in windowEnd - windowStart + 1" :key="windowStart + i - 1" class="strip-btn"
+          :class="{ active: windowStart + i - 1 === currentPage }" @pointerdown.prevent="goTo(windowStart + i - 1)">
           {{ windowStart + i - 1 }}
         </button>
       </div>
 
-      <button
-        class="strip-nav"
-        :disabled="currentPage >= totalPages"
-        @click="stripNext"
-      >
+      <button class="strip-nav" :disabled="currentPage >= totalPages" @pointerdown.prevent="stripNext">
         ›
       </button>
     </div>
@@ -108,6 +95,7 @@ function goTo(n) {
   border-bottom: 1px solid #333;
   z-index: 20;
   flex-shrink: 0;
+  touch-action: none;
 }
 
 .open-btn {
@@ -142,6 +130,7 @@ function goTo(n) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  touch-action: none;
 }
 
 .strip-nav {
@@ -153,6 +142,7 @@ function goTo(n) {
   cursor: pointer;
   line-height: 1;
   flex-shrink: 0;
+  touch-action: none;
 }
 
 .strip-nav:disabled {
@@ -171,6 +161,7 @@ function goTo(n) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  touch-action: none;
 }
 
 .strip-btn {
@@ -188,6 +179,7 @@ function goTo(n) {
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
 }
 
 .strip-btn.active {
