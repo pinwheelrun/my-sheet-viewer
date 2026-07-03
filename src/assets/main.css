@@ -1,21 +1,30 @@
-/* ── Global reset & base ── */
+/*
+ * 전역 리셋 및 기본 스타일
+ *
+ * main.js에서 import하여 모든 컴포넌트에 적용된다.
+ * 컴포넌트별 스타일은 각 .vue 파일의 <style scoped>에서 정의한다.
+ */
+
+/* 모든 요소에 적용되는 리셋 */
 * {
-  box-sizing: border-box;
+  box-sizing: border-box;    /* padding, border를 width/height에 포함 */
   margin: 0;
   padding: 0;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent; /* 모바일에서 탭 시 파란색 하이라이트 제거 */
 }
 
+/* 앱 전체 배경 및 텍스트 */
 body {
-  background: #1a1a1a;
-  color: #e0e0e0;
-  font-family: system-ui, -apple-system, sans-serif;
-  height: 100dvh;
-  overflow: hidden;
+  background: #1a1a1a;       /* 어두운 배경 (악보 읽기에 적합) */
+  color: #e0e0e0;            /* 밝은 회색 텍스트 */
+  font-family: system-ui, -apple-system, sans-serif; /* OS 기본 시스템 폰트 */
+  height: 100dvh;            /* dvh: 모바일 브라우저 주소창 변화에 대응하는 동적 뷰포트 높이 */
+  overflow: hidden;          /* body 자체 스크롤 방지 — 뷰어가 전체 화면을 차지해야 하므로 */
 }
 
+/* Vue 앱 루트 컨테이너 (#app은 index.html에 정의됨) */
 #app {
   height: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: column;    /* 상단바(PageStrip)와 뷰어 영역을 세로로 배치 */
 }
