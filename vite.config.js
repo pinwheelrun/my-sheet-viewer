@@ -17,7 +17,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        globPatterns: ['**/*.{js,mjs,css,html,ico,png,svg,woff,woff2}'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // PDF.js 워커가 ~2.2MB이므로 3MB로 상향
       },
       manifest: {
         name: 'Music Sheet Viewer',
