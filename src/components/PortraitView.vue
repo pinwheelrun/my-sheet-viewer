@@ -21,6 +21,8 @@
  * - 뷰어 상태(fileLoaded, isLoading, currentPage, totalPages)를 props로 받는다
  * - 탭 존에서 올라온 prev/next 이벤트를 그대로 부모에게 전달한다
  */
+import EmptyIcon from './atoms/EmptyIcon.vue';
+import PageIndicator from './atoms/PageIndicator.vue';
 import TapZones from './TapZones.vue'
 
 defineProps({
@@ -32,7 +34,7 @@ defineProps({
   totalPages: { type: Number, required: true },         // 총 페이지 수
 })
 
-defineEmits(['prev', 'next'])
+defineEmits(['prev', 'next', "open-file"])
 </script>
 
 <template>
@@ -44,14 +46,7 @@ defineEmits(['prev', 'next'])
   <div :ref="setViewerWrapEl" class="viewer-wrap">
 
     <!-- 빈 상태: PDF가 아직 로드되지 않았을 때 표시하는 안내 아이콘 -->
-    <div v-if="!fileLoaded" class="empty-state">
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="12" y="6" width="36" height="46" rx="3" stroke="currentColor" stroke-width="2.5" />
-        <path d="M20 20h24M20 28h24M20 36h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
-        <circle cx="46" cy="46" r="10" fill="#1a1a1a" stroke="currentColor" stroke-width="2.5" />
-        <path d="M43 46h6M46 43v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
-      </svg>
-    </div>
+    <EmptyIcon v-if="!fileLoaded" @open-file="$emit('open-file')" />
 
     <!-- 로딩 오버레이: PDF 파싱 중 반투명 배경 위에 스피너 표시 -->
     <div v-if="isLoading" class="loading">
@@ -59,23 +54,22 @@ defineEmits(['prev', 'next'])
       <span>Loading…</span>
     </div>
 
-    <!--
-      PDF 캔버스: usePdfRenderer가 이 canvas에 PDF 페이지를 렌더링한다.
-      :ref="setCanvasEl"로 부모의 setter를 호출하여 DOM 요소를 shallowRef에 설정한다.
-    -->
-    <canvas :ref="setCanvasEl" class="pdf-canvas"></canvas>
+    <div class="canvas-container" v-show="fileLoaded">
+      <!--
+        PDF 캔버스: usePdfRenderer가 이 canvas에 PDF 페이지를 렌더링한다.
+        :ref="setCanvasEl"로 부모의 setter를 호출하여 DOM 요소를 shallowRef에 설정한다.
+      -->
+      <canvas :ref="setCanvasEl" class="pdf-canvas"></canvas>
+
+      <PageIndicator :number-to-show="currentPage" />
+    </div>
 
     <!--
       탭 존: 화면 왼쪽에 위치하는 터치 영역 (이전/다음 페이지).
       prev, next 이벤트를 받아 부모에게 그대로 전달한다.
     -->
-    <TapZones
-      :file-loaded="fileLoaded"
-      :current-page="currentPage"
-      :total-pages="totalPages"
-      @prev="$emit('prev')"
-      @next="$emit('next')"
-    />
+    <TapZones :file-loaded="fileLoaded" :current-page="currentPage" :total-pages="totalPages" @prev="$emit('prev')"
+      @next="$emit('next')" />
   </div>
 </template>
 
@@ -96,6 +90,13 @@ defineEmits(['prev', 'next'])
   background: #1a1a1a;
 }
 
+.canvas-container {
+  position: relative;
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+}
+
 /* PDF 캔버스 — usePdfRenderer가 width/height를 동적으로 설정한다 */
 .pdf-canvas {
   display: block;
@@ -105,37 +106,6 @@ defineEmits(['prev', 'next'])
   /* 비율을 유지하면서 컨테이너에 맞춤 */
   touch-action: none;
   /* 브라우저 기본 터치 동작(스크롤, 핀치줌) 비활성화 */
-}
-
-/* ── 빈 상태 (파일 미로드 시) ── */
-.empty-state {
-  position: absolute;
-  inset: 0;
-  /* top/right/bottom/left 모두 0 → 컨테이너 전체를 덮음 */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: #666;
-  pointer-events: none;
-  /* 클릭이 뒤의 요소로 통과하도록 */
-}
-
-.empty-state svg {
-  width: 64px;
-  height: 64px;
-  opacity: 0.4;
-}
-
-.empty-state p {
-  font-size: 15px;
-  text-align: center;
-  line-height: 1.5;
-}
-
-.empty-state strong {
-  color: #aaa;
 }
 
 /* ── 로딩 오버레이 ── */

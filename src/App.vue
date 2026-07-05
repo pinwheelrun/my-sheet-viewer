@@ -28,7 +28,10 @@
  * App.vue는 <RouterView>만 렌더링하는 셸이 된다.
  */
 import { shallowRef } from 'vue'
+
 import { usePdfRenderer } from './composables/usePdfRenderer.js'
+import { useHamburger } from './composables/useHamburger.js'
+
 import PageStrip from './components/PageStrip.vue'
 import PortraitView from './components/PortraitView.vue'
 
@@ -48,10 +51,16 @@ const {
   fileLoaded,   // PDF 로드 여부 (탭존, 스트립 표시 제어)
   isLoading,    // 로딩 오버레이 표시 여부
   openFile,     // 파일 선택 다이얼로그 열기
+  closeFile,    // 현재 열려있는 파일 닫기
   goToPage,     // 특정 페이지로 이동
   prevPage,     // 이전 페이지
   nextPage,     // 다음 페이지
 } = usePdfRenderer(canvasRef, viewerWrapRef)
+
+const {
+  burgerEaten,
+  toggleHamburger,
+} = useHamburger();
 </script>
 
 <template>
@@ -59,27 +68,15 @@ const {
     상단바: PDF 열기 버튼 + 페이지 스트립.
     Props down, emits up 원칙에 따라 상태는 props로, 동작은 이벤트로 전달.
   -->
-  <PageStrip
-    :current-page="currentPage"
-    :total-pages="totalPages"
-    :file-loaded="fileLoaded"
-    @open-file="openFile"
-    @go-to-page="goToPage"
-  />
+  <PageStrip :current-page="currentPage" :total-pages="totalPages" :file-loaded="fileLoaded" @open-file="openFile"
+    @close-file="closeFile" @go-to-page="goToPage" :burger-eaten="burgerEaten" @toggle-hamburger="toggleHamburger" />
 
   <!--
     뷰어 영역: setter 함수를 통해 DOM 요소를 shallowRef에 연결한다.
     PortraitView가 마운트되면 :ref 바인딩이 setter를 호출하고,
     usePdfRenderer가 해당 ref들의 .value를 읽어 렌더링한다.
   -->
-  <PortraitView
-    :set-canvas-el="setCanvasEl"
-    :set-viewer-wrap-el="setViewerWrapEl"
-    :file-loaded="fileLoaded"
-    :is-loading="isLoading"
-    :current-page="currentPage"
-    :total-pages="totalPages"
-    @prev="prevPage"
-    @next="nextPage"
-  />
+  <PortraitView :set-canvas-el="setCanvasEl" :set-viewer-wrap-el="setViewerWrapEl" :file-loaded="fileLoaded"
+    :is-loading="isLoading" :current-page="currentPage" :total-pages="totalPages" @prev="prevPage" @next="nextPage"
+    @open-file="openFile" />
 </template>

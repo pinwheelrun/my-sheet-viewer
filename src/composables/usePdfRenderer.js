@@ -163,6 +163,10 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
     }
   }
 
+  function closeFile() {
+    cleanupCurrentPDF({ clear: true });
+  };
+
   async function loadPDF(data, token = openToken) {
     isLoading.value = true
     let task = null
@@ -369,6 +373,7 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
     fileLoaded,    // ref<boolean> — 파일 로드 여부
     isLoading,     // ref<boolean> — 로딩 중 여부
     openFile,      // () => void — 파일 선택 다이얼로그 열기
+    closeFile,     // () => void — 현재 열려있는 파일 닫기
     goToPage,      // (n: number) => void — 특정 페이지로 이동
     prevPage,      // () => void — 이전 페이지
     nextPage,      // () => void — 다음 페이지

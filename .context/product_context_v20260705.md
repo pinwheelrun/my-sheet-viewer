@@ -46,12 +46,12 @@ The full-screen PDF reader. Minimal UI, optimized for reading during practice.
 - Keyboard arrow navigation
 - Pending page queuing (rapid taps handled gracefully)
 - Installed as PWA on Android tablet via GitHub Pages
-
-### Planned additions
-
 - Extract viewer logic from `App.vue` into a dedicated `PortraitView.vue` component
 - Replace the "Open PDF" button with a hamburger menu
 - Allow tapping the empty view area to open the system file picker
+
+### Planned additions
+
 - Mode toggle in the top bar: Normal mode vs Sequence mode (see Sequences below)
 - In Sequence mode the strip shows steps in order as page number labels; active
   step highlighted by position index, not page number value
@@ -62,10 +62,10 @@ The full-screen PDF reader. Minimal UI, optimized for reading during practice.
 ### Empty state (no file open)
 
 - View area shows a placeholder icon
-- (Planned) Tapping the view area opens the system file picker directly
+- Tapping the placeholder icon opens the system file picker directly
 - Top bar shows the "Open PDF" button only; strip and page count are hidden
 
-### Hamburger menu (Planned)
+### Hamburger menu
 
 Will replace the `Open PDF` button in the top-left of the top bar.
 
@@ -73,8 +73,8 @@ Will replace the `Open PDF` button in the top-left of the top bar.
 |---|---|---|
 | `Open file` | Always | Opens system file picker |
 | `Close file` | File is open | Returns to empty state; frees all PDF resources |
-| `Edit` | File is open | Navigates to `/editor` for the current file |
-| `Setting` | Always | Navigates to `/settings` |
+| `Edit` | File is open | (Planned) Navigates to `/editor` for the current file |
+| `Setting` | Always | (Planned) Navigates to `/settings` |
 
 `[Close app]` is not feasible — `window.close()` does not work for PWA launch
 contexts on Android. Omit this item entirely.
@@ -355,11 +355,11 @@ hash key on import.
 
 Each phase produces something immediately testable as a PWA on the tablet.
 
-**Phase 1 — Vue port of prototype** (in progress)
+**Phase 1 — Vue port of prototype** (done)
 Behavioral parity with the HTML prototype in Vue 3 + Composition API. Establishes
-`usePdfRenderer`, `PageStrip.vue`, `TapZones.vue`. (Note: `PortraitView.vue` extraction is pending).
+`usePdfRenderer`, `PageStrip.vue`, `TapZones.vue`, and `PortraitView.vue`.
 
-**Phase 2 — Hamburger menu + routing**
+**Phase 2 — Hamburger menu + routing** (in progress)
 Add Vue Router with `/viewer`, `/editor`, `/settings` routes. Replace Open button
 with hamburger menu. Implement empty state tap-to-open. Add `[Close file]` to free
 resources. Editor and Settings routes are placeholder pages at this stage.

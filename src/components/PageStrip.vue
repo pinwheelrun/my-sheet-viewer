@@ -24,9 +24,10 @@ const props = defineProps({
   currentPage: { type: Number, required: true },  // 현재 페이지 번호
   totalPages: { type: Number, required: true },   // 총 페이지 수
   fileLoaded: { type: Boolean, required: true },  // PDF 로드 여부
+  burgerEaten: { type: Boolean, required: true },
 })
 
-const emit = defineEmits(['open-file', 'go-to-page'])
+const emit = defineEmits(['open-file', "close-file", 'go-to-page', "toggle-hamburger"])
 
 /* ── 스트립 윈도우 상태 ── */
 const stripRef = shallowRef(null)  // 페이지 버튼들을 감싸는 <div>의 DOM 참조
@@ -83,14 +84,45 @@ function stripNext() {
 
 /** 특정 페이지로 이동 요청 이벤트 발생 */
 function goTo(n) {
+  if (n === props.currentPage) {
+    return;
+  }
   emit('go-to-page', n)
 }
+
+function openFile() {
+  emit('open-file');
+  emit("toggle-hamburger");
+};
+
+function closeFile() {
+  emit("close-file");
+  emit("toggle-hamburger");
+};
+
+function alertInConstruction() {
+  alert("TODO");
+};
 </script>
 
 <template>
   <div class="topbar">
-    <!-- PDF 파일 열기 버튼 -->
-    <button class="open-btn" @click="$emit('open-file')">Open PDF</button>
+    <!-- 햄버거 버튼 -->
+    <div class="hamburger-menu">
+      <button class="hamburger-btn" type="button" aria-label="Open menu" :aria-expanded="burgerEaten"
+        @pointerdown.stop.prevent="$emit('toggle-hamburger')">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <div v-if="burgerEaten" class="menu-panel">
+        <button type="button" class="menu-item" @click="openFile">Open file</button>
+        <button type="button" class="menu-item" @click="closeFile" :disabled="!fileLoaded">Close file</button>
+        <button type="button" class="menu-item" :disabled="!fileLoaded" @click="alertInConstruction">Edit</button>
+        <button type="button" class="menu-item" @click="alertInConstruction">Setting</button>
+      </div>
+    </div>
 
     <!--
       페이지 스트립: PDF 로드 후에만 표시된다.
@@ -122,7 +154,9 @@ function goTo(n) {
     </div>
 
     <!-- 총 페이지 수 표시 -->
-    <span v-if="fileLoaded" class="page-total">{{ totalPages }}</span>
+    <div v-if="fileLoaded" class="page-total">
+      <span>{{ totalPages }}</span>
+    </div>
   </div>
 </template>
 
@@ -165,12 +199,90 @@ function goTo(n) {
   /* 터치 피드백 */
 }
 
-/* 총 페이지 수 라벨 */
-.page-total {
-  font-size: 13px;
-  color: #666;
-  white-space: nowrap;
+.hamburger-menu {
+  position: relative;
   flex-shrink: 0;
+}
+
+.hamburger-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  background: #2a6fff;
+  color: #ddd;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.hamburger-btn span {
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.hamburger-btn:active {
+  opacity: 0.75;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #181818;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.menu-item {
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #e0e0e0;
+  cursor: pointer;
+  display: block;
+  font-size: 13px;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.menu-item:not(:disabled):active {
+  background: #2a2a2a;
+}
+
+.menu-item:disabled {
+  color: #666;
+  cursor: default;
+}
+
+.page-total {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  background: #333;
+  border: 1px solid #3a3a3a;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  /* 버튼 크기 고정 — 줄어들지 않음 */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── 페이지 스트립 래퍼 ── */
