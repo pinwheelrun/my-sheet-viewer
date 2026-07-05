@@ -3,9 +3,15 @@
  * TapZones — 화면 왼쪽의 터치 영역 (이전/다음 페이지 이동).
  *
  * 【배치】
- * 뷰어 왼쪽 30% 영역을 상하로 분할:
- * - 상단 35%: 이전 페이지 (초록 틴트)
- * - 하단 65%: 다음 페이지 (파란 틴트)
+ * 뷰어 왼쪽 40% 영역을 상하로 분할:
+ * - 상단 39%: 이전 페이지 (초록 틴트), top 3%부터 시작
+ * - 하단 45%: 다음 페이지 (파란 틴트), 3% 갭 후 시작
+ *
+ * 【디바운스 쿨다운】
+ * 각 존(prev/next)에 독립적인 400ms 쿨다운을 적용한다.
+ * 빠른 연속 탭에서 동일 존은 400ms 내 한 번만 반응하지만,
+ * 서로 다른 존은 독립적으로 반응한다.
+ * 쿨다운은 UI 상태가 아니므로 plain let 변수로 관리한다.
  *
  * 【화살표 힌트】
  * 각 탭존 안에 ‹ / › 기호를 표시하여 터치 영역임을 시각적으로 안내한다.
@@ -13,7 +19,7 @@
  *
  * 【컴포넌트 규칙: props down, emits up】
  * - 이 컴포넌트는 자체적으로 페이지를 변경하지 않는다.
- * - prev / next 이벤트를 emit하고, 부모(App.vue)가 컴포저블의 함수를 호출한다.
+ * - prev / next 이벤트를 emit하고, 부모가 컴포저블의 함수를 호출한다.
  *
  * 【@pointerdown.prevent를 쓰는 이유】
  * click 대신 pointerdown을 사용하면 터치 디바이스에서 ~300ms 지연 없이 즉시 반응한다.
@@ -25,15 +31,42 @@ defineProps({
   totalPages: { type: Number, required: true },   // 총 페이지 수 — 화살표 힌트 opacity 제어
 })
 
-defineEmits(['prev', 'next'])
+const emit = defineEmits(['prev', 'next'])
+
+/* ── 디바운스 쿨다운 (Vue 반응성 밖) ── */
+const COOLDOWN_MS = 400  // 쿨다운 시간 (ms)
+let lastPrevTime = 0     // 마지막 prev 이벤트 발생 시각
+let lastNextTime = 0     // 마지막 next 이벤트 발생 시각
+
+/**
+ * prev 존 탭 핸들러.
+ * 마지막 prev 이벤트로부터 400ms 이상 경과했을 때만 emit한다.
+ */
+function handlePrev() {
+  const now = Date.now()
+  if (now - lastPrevTime < COOLDOWN_MS) return
+  lastPrevTime = now
+  emit('prev')
+}
+
+/**
+ * next 존 탭 핸들러.
+ * 마지막 next 이벤트로부터 400ms 이상 경과했을 때만 emit한다.
+ */
+function handleNext() {
+  const now = Date.now()
+  if (now - lastNextTime < COOLDOWN_MS) return
+  lastNextTime = now
+  emit('next')
+}
 </script>
 
 <template>
   <!-- fileLoaded가 true일 때만 탭존과 화살표 힌트를 렌더링 -->
   <template v-if="fileLoaded">
-    <!-- 탭존: 각각 클릭/터치 시 이벤트를 emit -->
-    <div class="tap-zone tap-prev" @pointerdown.prevent="$emit('prev')"></div>
-    <div class="tap-zone tap-next" @pointerdown.prevent="$emit('next')"></div>
+    <!-- 탭존: 각각 클릭/터치 시 쿨다운을 거쳐 이벤트를 emit -->
+    <div class="tap-zone tap-prev" @pointerdown.prevent="handlePrev"></div>
+    <div class="tap-zone tap-next" @pointerdown.prevent="handleNext"></div>
 
     <!--
       화살표 힌트: pointer-events: none이므로 터치를 가로채지 않는다.
@@ -57,24 +90,24 @@ defineEmits(['prev', 'next'])
 .tap-zone {
   position: absolute;
   left: 0;
-  width: 30%;
-  /* 화면 왼쪽 30% 영역 */
+  width: 40%;
+  /* 화면 왼쪽 40% 영역 */
   z-index: 10;
   cursor: pointer;
   touch-action: none;
 }
 
-/* 이전 페이지 탭존 — 상단 35% (초록 틴트) */
+/* 이전 페이지 탭존 — 3% 갭, 상단 39% (초록 틴트) */
 .tap-prev {
-  top: 0;
-  height: 35%;
+  top: 3%;
+  height: 39%;
   background: rgba(80, 180, 120, 0.15);
   /* 반투명 초록 — 영역 시각화용 */
 }
 
-/* 다음 페이지 탭존 — 나머지 하단 65% (파란 틴트) */
+/* 다음 페이지 탭존 — 3%갭, 하단 45% (파란 틴트) */
 .tap-next {
-  top: 35%;
+  top: 45%;
   bottom: 0;
   background: rgba(60, 130, 220, 0.15);
   /* 반투명 파랑 — 영역 시각화용 */
@@ -99,11 +132,11 @@ defineEmits(['prev', 'next'])
 
 /* ‹ 이전 힌트 — 탭존 상단 영역의 중간쯤 */
 .arrow-hint-prev {
-  top: 10%;
+  top: 20%;
 }
 
 /* › 다음 힌트 — 탭존 하단 영역의 중간쯤 */
 .arrow-hint-next {
-  top: 60%;
+  top: 70%;
 }
 </style>
