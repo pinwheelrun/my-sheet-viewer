@@ -31,10 +31,16 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
 
   /* ── 일반 변수 (Vue 반응성 밖) ── */
   let pdfDoc = null       // PDF.js 문서 객체 — 절대 ref()로 감싸지 않는다
+  let loadingTask = null  // PDF.js 로딩 태스크 — 문서 destroy()는 이 객체가 소유한다
+  let renderTask = null   // 현재 PDF.js 렌더 태스크 — 파일 교체 전 취소한다
   let canvasCtx = null    // canvas 2D 컨텍스트 — 한 번만 획득해서 캐싱
   let rendering = false   // 현재 렌더링 중인지 여부 (렌더링 큐잉 제어용)
+  let renderRunId = 0     // 오래된 렌더 finally가 최신 렌더 상태를 건드리지 않도록 구분한다
   let pendingPage = null  // 렌더링 중 요청된 다음 페이지 번호 (큐잉 패턴)
   let resizeTimer = null  // 리사이즈 디바운스용 타이머 ID
+  let fileReader = null   // 현재 FileReader — 빠른 파일 교체 시 오래된 읽기를 중단한다
+  let openToken = 0       // 비동기 open/render 결과 중 오래된 작업을 무시하기 위한 토큰
+  let disposed = false    // 컴포저블 정리 이후 비동기 콜백 무시용 플래그
 
   /* ── 반응성 상태 (UI 바인딩용) ── */
   const currentPage = ref(1)      // 현재 표시 중인 페이지 번호
@@ -74,8 +80,26 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
   function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
+
+    const token = ++openToken
+    if (fileReader?.readyState === FileReader.LOADING) {
+      fileReader.abort()
+    }
+
     const reader = new FileReader()
-    reader.onload = (ev) => loadPDF(ev.target.result)
+    fileReader = reader
+    reader.onload = (ev) => {
+      if (disposed || token !== openToken) return
+      loadPDF(ev.target.result, token)
+    }
+    reader.onerror = () => {
+      if (!disposed && token === openToken) {
+        alert('Could not read PDF file.')
+      }
+    }
+    reader.onloadend = () => {
+      if (fileReader === reader) fileReader = null
+    }
     reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
@@ -85,26 +109,105 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
    * pdfDoc에 PDF.js 문서 객체를 저장한다 (일반 변수, ref 아님).
    * 이전에 열린 PDF가 있으면 destroy()로 리소스를 해제한 후 교체한다.
    */
-  async function loadPDF(data) {
-    isLoading.value = true
+  function clearCanvas() {
+    const canvas = canvasRef.value
+    if (!canvas) return
+    canvas.width = 0
+    canvas.height = 0
+    canvas.style.width = ''
+    canvas.style.height = ''
+    canvasCtx = null
+  }
 
-    // 이전 PDF 문서가 있으면 내부 리소스(워커 참조 등)를 해제한다
-    if (pdfDoc) {
-      pdfDoc.destroy()
-      pdfDoc = null
+  function resetViewerState() {
+    currentPage.value = 1
+    totalPages.value = 0
+    fileLoaded.value = false
+  }
+
+  async function cleanupCurrentPDF({ clear = false } = {}) {
+    pendingPage = null
+
+    const taskToCancel = renderTask
+    const taskToDestroy = loadingTask
+    renderTask = null
+    renderRunId++
+    rendering = false
+    loadingTask = null
+    pdfDoc = null
+
+    if (clear) {
+      resetViewerState()
+      clearCanvas()
     }
 
+    if (taskToCancel) {
+      try {
+        taskToCancel.cancel()
+      } catch (err) {
+        console.error('Could not cancel PDF render task:', err)
+      }
+      try {
+        await taskToCancel.promise
+      } catch {
+        // 파일 교체 중 렌더 취소로 promise가 reject되는 것은 정상 흐름이다.
+      }
+    }
+
+    if (taskToDestroy) {
+      try {
+        await taskToDestroy.destroy()
+      } catch (err) {
+        console.error('Could not destroy PDF loading task:', err)
+      }
+    }
+  }
+
+  async function loadPDF(data, token = openToken) {
+    isLoading.value = true
+    let task = null
+    let docLoaded = false
+
     try {
-      pdfDoc = await getDocument({ data }).promise
+      await cleanupCurrentPDF({ clear: true })
+      if (disposed || token !== openToken) return
+
+      task = getDocument({ data })
+      loadingTask = task
+      const doc = await task.promise
+
+      if (disposed || token !== openToken) {
+        try {
+          await task.destroy()
+        } finally {
+          if (loadingTask === task) loadingTask = null
+        }
+        return
+      }
+
+      docLoaded = true
+      pdfDoc = doc
       totalPages.value = pdfDoc.numPages
       currentPage.value = 1
       fileLoaded.value = true
 
-      await renderPage(1)
+      await renderPage(1, token)
     } catch (err) {
-      alert('Could not open PDF: ' + err.message)
+      if (!docLoaded && task && loadingTask === task) {
+        loadingTask = null
+        try {
+          await task.destroy()
+        } catch (destroyErr) {
+          console.error('Could not destroy failed PDF loading task:', destroyErr)
+        }
+      }
+      if (!disposed && token === openToken) {
+        alert('Could not open PDF: ' + err.message)
+      }
     } finally {
-      isLoading.value = false
+      if (!disposed && token === openToken) {
+        isLoading.value = false
+      }
     }
   }
 
@@ -115,18 +218,19 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
    * pendingPage에 저장해뒀다가 현재 렌더링이 끝난 후 이어서 처리한다.
    * 빠른 연속 탭에서 중간 페이지를 건너뛰고 마지막 요청만 렌더링하는 효과가 있다.
    */
-  async function renderPage(num) {
+  async function renderPage(num, token = openToken) {
     // 이미 렌더링 중이면 — 요청을 큐에 저장하고 리턴
     if (rendering) {
-      pendingPage = num
+      pendingPage = { num, token }
       return
     }
     rendering = true
+    const runId = ++renderRunId
 
     const canvas = canvasRef.value
     const wrapEl = viewerWrapRef.value
-    if (!canvas || !wrapEl || !pdfDoc) {
-      rendering = false
+    if (!canvas || !wrapEl || !pdfDoc || disposed || token !== openToken) {
+      if (runId === renderRunId) rendering = false
       return
     }
 
@@ -135,40 +239,59 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
     if (!canvasCtx) {
       canvasCtx = canvas.getContext('2d')
     }
-    const page = await pdfDoc.getPage(num)
 
-    /*
-     * 스케일 계산:
-     * 1) 원본 뷰포트(scale=1)로 PDF 페이지의 실제 크기를 구한다.
-     * 2) 뷰어 컨테이너에 맞게 축소/확대 비율을 계산한다 (contain 방식).
-     * 3) devicePixelRatio를 곱해서 고해상도 디스플레이에서 선명하게 렌더링한다.
-     *    → canvas의 내부 해상도는 크게, CSS 표시 크기는 실제 픽셀로 설정.
-     */
-    const vp0 = page.getViewport({ scale: 1 })
-    const wrap = wrapEl.getBoundingClientRect()
-    const scale =
-      Math.min(wrap.width / vp0.width, wrap.height / vp0.height) *
-      window.devicePixelRatio
+    let task = null
 
-    const vp = page.getViewport({ scale })
+    try {
+      const page = await pdfDoc.getPage(num)
+      if (disposed || token !== openToken) return
 
-    // canvas 내부 해상도 (실제 픽셀 수)
-    canvas.width = vp.width
-    canvas.height = vp.height
-    // canvas CSS 크기 (화면에 표시되는 크기) — devicePixelRatio로 나눠서 논리 픽셀로 변환
-    canvas.style.width = vp.width / window.devicePixelRatio + 'px'
-    canvas.style.height = vp.height / window.devicePixelRatio + 'px'
+      /*
+       * 스케일 계산:
+       * 1) 원본 뷰포트(scale=1)로 PDF 페이지의 실제 크기를 구한다.
+       * 2) 뷰어 컨테이너에 맞게 축소/확대 비율을 계산한다 (contain 방식).
+       * 3) devicePixelRatio를 곱해서 고해상도 디스플레이에서 선명하게 렌더링한다.
+       *    → canvas의 내부 해상도는 크게, CSS 표시 크기는 실제 픽셀로 설정.
+       */
+      const vp0 = page.getViewport({ scale: 1 })
+      const wrap = wrapEl.getBoundingClientRect()
+      const scale =
+        Math.min(wrap.width / vp0.width, wrap.height / vp0.height) *
+        window.devicePixelRatio
 
-    await page.render({ canvasContext: canvasCtx, viewport: vp }).promise
+      const vp = page.getViewport({ scale })
 
-    currentPage.value = num
-    rendering = false
+      // canvas 내부 해상도 (실제 픽셀 수)
+      canvas.width = vp.width
+      canvas.height = vp.height
+      // canvas CSS 크기 (화면에 표시되는 크기) — devicePixelRatio로 나눠서 논리 픽셀로 변환
+      canvas.style.width = vp.width / window.devicePixelRatio + 'px'
+      canvas.style.height = vp.height / window.devicePixelRatio + 'px'
 
-    // 렌더링 중에 큐잉된 페이지가 있으면 이어서 렌더링
-    if (pendingPage !== null) {
-      const p = pendingPage
+      task = page.render({ canvasContext: canvasCtx, viewport: vp })
+      renderTask = task
+      await task.promise
+      if (renderTask === task) renderTask = null
+      page.cleanup()
+
+      if (!disposed && token === openToken) {
+        currentPage.value = num
+      }
+    } catch (err) {
+      if (err?.name !== 'RenderingCancelledException') {
+        console.error('Could not render PDF page:', err)
+      }
+    } finally {
+      if (renderTask === task) renderTask = null
+      if (runId !== renderRunId) return
+      rendering = false
+
+      // 렌더링 중에 큐잉된 페이지가 있으면 이어서 렌더링
+      const pending = pendingPage
       pendingPage = null
-      renderPage(p)
+      if (pending && !disposed && pending.token === openToken) {
+        renderPage(pending.num, pending.token)
+      }
     }
   }
 
@@ -177,7 +300,7 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
   /** 지정한 페이지로 이동. 범위를 벗어나면 무시한다. */
   function goToPage(n) {
     if (!pdfDoc || n < 1 || n > totalPages.value) return
-    renderPage(n)
+    renderPage(n, openToken)
   }
 
   /** 이전 페이지로 이동. */
@@ -208,7 +331,7 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
   function handleResize() {
     clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
-      if (pdfDoc) renderPage(currentPage.value)
+      if (pdfDoc) renderPage(currentPage.value, openToken)
     }, 200)
   }
 
@@ -225,12 +348,13 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
     document.removeEventListener('keydown', handleKeydown)
     window.removeEventListener('resize', handleResize)
     clearTimeout(resizeTimer)
-    // 열린 PDF 문서의 내부 리소스 해제
-    if (pdfDoc) {
-      pdfDoc.destroy()
-      pdfDoc = null
+    disposed = true
+    openToken++
+    if (fileReader?.readyState === FileReader.LOADING) {
+      fileReader.abort()
     }
-    // 동적으로 생성한 <input> 요소도 정리
+    fileReader = null
+    cleanupCurrentPDF({ clear: true })
     if (fileInput) {
       fileInput.removeEventListener('change', handleFileChange)
       fileInput.remove()
