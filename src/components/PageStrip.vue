@@ -19,15 +19,18 @@
  * - 이 컴포넌트는 직접 페이지를 바꾸지 않고, 이벤트만 발생시킨다.
  */
 import { ref, watch, nextTick, shallowRef } from 'vue'
+import HamburgerButton from './atoms/HamburgerButton.vue'
+import LoopModeButton from './atoms/LoopModeButton.vue'
 
 const props = defineProps({
   currentPage: { type: Number, required: true },  // 현재 페이지 번호
   totalPages: { type: Number, required: true },   // 총 페이지 수
   fileLoaded: { type: Boolean, required: true },  // PDF 로드 여부
   burgerEaten: { type: Boolean, required: true },
+  loopMode: { type: Boolean, required: true },
 })
 
-const emit = defineEmits(['open-file', "close-file", 'go-to-page', "toggle-hamburger"])
+const emit = defineEmits(['open-file', "close-file", 'go-to-page', "toggle-hamburger", "toggle-loop-mode"])
 
 /* ── 스트립 윈도우 상태 ── */
 const stripRef = shallowRef(null)  // 페이지 버튼들을 감싸는 <div>의 DOM 참조
@@ -99,30 +102,16 @@ function closeFile() {
   emit("close-file");
   emit("toggle-hamburger");
 };
-
-function alertInConstruction() {
-  alert("TODO");
-};
 </script>
 
 <template>
   <div class="topbar">
     <!-- 햄버거 버튼 -->
-    <div class="hamburger-menu">
-      <button class="hamburger-btn" type="button" aria-label="Open menu" :aria-expanded="burgerEaten"
-        @pointerdown.stop.prevent="$emit('toggle-hamburger')">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+    <HamburgerButton :burger-eaten="burgerEaten" @toggle-hamburger="$emit('toggle-hamburger')" :file-loaded="fileLoaded"
+      @open-file="openFile" @close-file="closeFile" />
 
-      <div v-if="burgerEaten" class="menu-panel">
-        <button type="button" class="menu-item" @click="openFile">Open file</button>
-        <button type="button" class="menu-item" @click="closeFile" :disabled="!fileLoaded">Close file</button>
-        <button type="button" class="menu-item" :disabled="!fileLoaded" @click="alertInConstruction">Edit</button>
-        <button type="button" class="menu-item" @click="alertInConstruction">Setting</button>
-      </div>
-    </div>
+    <!-- 루프 모드 토글 버튼 -->
+    <LoopModeButton :loop-mode="loopMode" @toggle-loop-mode="$emit('toggle-loop-mode')" />
 
     <!--
       페이지 스트립: PDF 로드 후에만 표시된다.
@@ -176,95 +165,6 @@ function alertInConstruction() {
   /* 뷰어 영역이 커져도 상단바는 줄어들지 않음 */
   touch-action: none;
   /* 상단바에서 브라우저 기본 터치 동작 방지 */
-}
-
-/* PDF 열기 버튼 */
-.open-btn {
-  background: #2a6fff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  /* 텍스트 줄바꿈 방지 */
-  flex-shrink: 0;
-  /* 스트립이 커져도 버튼은 줄어들지 않음 */
-}
-
-.open-btn:active {
-  opacity: 0.8;
-  /* 터치 피드백 */
-}
-
-.hamburger-menu {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.hamburger-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
-  background: #2a6fff;
-  color: #ddd;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0;
-}
-
-.hamburger-btn span {
-  width: 16px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.hamburger-btn:active {
-  opacity: 0.75;
-}
-
-.menu-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 132px;
-  padding: 6px;
-  border: 1px solid #333;
-  border-radius: 6px;
-  background: #181818;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  z-index: 50;
-}
-
-.menu-item {
-  width: 100%;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: #e0e0e0;
-  cursor: pointer;
-  display: block;
-  font-size: 13px;
-  padding: 8px 10px;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.menu-item:not(:disabled):active {
-  background: #2a2a2a;
-}
-
-.menu-item:disabled {
-  color: #666;
-  cursor: default;
 }
 
 .page-total {

@@ -21,8 +21,8 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // PDF.js 워커가 ~2.2MB이므로 3MB로 상향
       },
       manifest: {
-        name: 'Music Sheet Viewer',
-        short_name: 'SheetViewer',
+        name: 'VueSheet',
+        short_name: 'VueSheet',
         description: 'Offline PDF music sheet viewer for tablets',
         theme_color: '#111111',
         background_color: '#1a1a1a',

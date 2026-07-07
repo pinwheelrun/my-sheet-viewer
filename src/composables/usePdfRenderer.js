@@ -45,6 +45,7 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
   /* ── 반응성 상태 (UI 바인딩용) ── */
   const currentPage = ref(1)      // 현재 표시 중인 페이지 번호
   const totalPages = ref(0)       // PDF 총 페이지 수
+  const loopMode = ref(false);    // 루프 모드 여부
   const fileLoaded = ref(false)   // PDF 파일이 로드되었는지 여부 (탭존, 스트립 표시 제어)
   const isLoading = ref(false)    // 로딩 오버레이 표시 여부
 
@@ -300,10 +301,23 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
   }
 
   /* ── 페이지 이동 ── */
+  /** 루프 모드 토글 */
+  function toggleLoopMode() {
+    loopMode.value = !loopMode.value;
+  };
 
-  /** 지정한 페이지로 이동. 범위를 벗어나면 무시한다. */
+  /** 지정한 페이지로 이동. 루프모드가 아닐 때는 범위를 벗어나면 무시한다. */
   function goToPage(n) {
-    if (!pdfDoc || n < 1 || n > totalPages.value) return
+    if (!pdfDoc) return
+    if (n < 1 || n > totalPages.value) {
+      if (!loopMode.value) {
+        return;
+      } else if (n < 1) {
+        n = totalPages.value;
+      } else if (n > totalPages.value) {
+        n = 1;
+      }
+    }
     renderPage(n, openToken)
   }
 
@@ -368,14 +382,16 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
 
   /* ── 외부에 노출하는 API ── */
   return {
-    currentPage,   // ref<number> — 현재 페이지 (읽기/쓰기)
-    totalPages,    // ref<number> — 총 페이지 수 (읽기 전용으로 사용)
-    fileLoaded,    // ref<boolean> — 파일 로드 여부
-    isLoading,     // ref<boolean> — 로딩 중 여부
-    openFile,      // () => void — 파일 선택 다이얼로그 열기
-    closeFile,     // () => void — 현재 열려있는 파일 닫기
-    goToPage,      // (n: number) => void — 특정 페이지로 이동
-    prevPage,      // () => void — 이전 페이지
-    nextPage,      // () => void — 다음 페이지
+    currentPage,    // ref<number> — 현재 페이지 (읽기/쓰기)
+    totalPages,     // ref<number> — 총 페이지 수 (읽기 전용으로 사용)
+    loopMode,       // ref<boolean> — 루프 모드 여부
+    fileLoaded,     // ref<boolean> — 파일 로드 여부
+    isLoading,      // ref<boolean> — 로딩 중 여부
+    openFile,       // () => void — 파일 선택 다이얼로그 열기
+    closeFile,      // () => void — 현재 열려있는 파일 닫기
+    toggleLoopMode, // () => void — 루프 모드 토글
+    goToPage,       // (n: number) => void — 특정 페이지로 이동
+    prevPage,       // () => void — 이전 페이지
+    nextPage,       // () => void — 다음 페이지
   }
 }
