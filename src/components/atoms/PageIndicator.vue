@@ -23,8 +23,8 @@ const direction = computed(() => props.direction !== "left" ? " right-page" : " 
     width: 50px;
     height: 50px;
     padding: 0;
-    background: #efefefaa;
-    color: #2a6fff;
+    background: #efefef62;
+    color: #2a6eff62;
     font-size: 30px;
     font-weight: 800;
     flex-shrink: 0;
