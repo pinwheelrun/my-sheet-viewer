@@ -23,7 +23,6 @@
  */
 import EmptyIcon from './atoms/EmptyIcon.vue';
 import PageIndicator from './atoms/PageIndicator.vue';
-import TapZones from './TapZones.vue'
 
 defineProps({
   setCanvasEl: { type: Function, required: true },      // (el: HTMLCanvasElement|null) => void
@@ -34,14 +33,14 @@ defineProps({
   totalPages: { type: Number, required: true },         // 총 페이지 수
 })
 
-defineEmits(['prev', 'next', "open-file"])
+defineEmits(["open-file"])
 </script>
 
 <template>
   <!--
-    뷰어 영역: canvas + 빈 상태 + 로딩 오버레이 + 탭 존.
+    뷰어 영역: canvas + 빈 상태 + 로딩 오버레이
     :ref="setViewerWrapEl"로 부모의 setter를 호출하여 DOM 요소를 shallowRef에 설정한다.
-    position: relative로 설정되어 내부의 absolute 요소들(탭존, 로딩 등)의 기준이 된다.
+    position: relative로 설정되어 내부의 absolute 요소들(로딩 등)의 기준이 된다.
   -->
   <div :ref="setViewerWrapEl" class="viewer-wrap">
 
@@ -63,13 +62,6 @@ defineEmits(['prev', 'next', "open-file"])
 
       <PageIndicator :number-to-show="currentPage" />
     </div>
-
-    <!--
-      탭 존: 화면 왼쪽에 위치하는 터치 영역 (이전/다음 페이지).
-      prev, next 이벤트를 받아 부모에게 그대로 전달한다.
-    -->
-    <TapZones :file-loaded="fileLoaded" :current-page="currentPage" :total-pages="totalPages" @prev="$emit('prev')"
-      @next="$emit('next')" />
   </div>
 </template>
 

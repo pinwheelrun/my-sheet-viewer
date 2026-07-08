@@ -34,6 +34,7 @@ import { useHamburger } from './composables/useHamburger.js'
 
 import PageStrip from './components/PageStrip.vue'
 import PortraitView from './components/PortraitView.vue'
+import TapZones from './components/TapZones.vue'
 
 // shallowRef 소유 — usePdfRenderer가 이 ref들의 .value를 읽어 렌더링한다
 const canvasRef = shallowRef(null)     // PDF를 그릴 <canvas> 요소
@@ -79,7 +80,24 @@ const {
     PortraitView가 마운트되면 :ref 바인딩이 setter를 호출하고,
     usePdfRenderer가 해당 ref들의 .value를 읽어 렌더링한다.
   -->
-  <PortraitView :set-canvas-el="setCanvasEl" :set-viewer-wrap-el="setViewerWrapEl" :file-loaded="fileLoaded"
-    :is-loading="isLoading" :current-page="currentPage" :total-pages="totalPages" @prev="prevPage" @next="nextPage"
-    @open-file="openFile" />
+  <div class="viewer-screen">
+    <PortraitView :set-canvas-el="setCanvasEl" :set-viewer-wrap-el="setViewerWrapEl" :file-loaded="fileLoaded"
+      :is-loading="isLoading" :current-page="currentPage" :total-pages="totalPages" @open-file="openFile" />
+
+    <!--
+      탭 존: 화면 왼쪽에 위치하는 터치 영역 (이전/다음 페이지).
+      prev, next 이벤트를 받아 부모에게 그대로 전달한다.
+    -->
+    <TapZones :file-loaded="fileLoaded" :current-page="currentPage" :total-pages="totalPages" @prev="prevPage"
+      @next="nextPage" />
+  </div>
+
 </template>
+
+<style scoped>
+.viewer-screen {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+</style>
