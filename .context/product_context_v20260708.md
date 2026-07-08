@@ -37,7 +37,7 @@ The full-screen PDF reader. Minimal UI, optimized for reading during practice.
 
 - **Phase 1 (Vue Port) and Phase 2 (Hamburger/Components) completed.**
 - `App.vue` acts as the root layout (`.viewer-screen`), managing the `TapZones` to allow sharing between future views.
-- `PortraitView.vue` handles the single canvas which scaled to `devicePixelRatio`, `EmptyIcon`, and `PageIndicator`.
+- `PdfViewer.vue` handles the single persistent canvas which is scaled to `devicePixelRatio`. It also handles `EmptyIcon`, and `PageIndicator`. (Note: Originally designed as separate `PortraitView.vue` and `LandscapeView.vue` components, but consolidated for performance).
 - Top bar: Hamburger menu (`HamburgerButton.vue`), Loop Mode toggle (`LoopModeButton.vue`), dynamic page strip, total page count.
 - Hamburger menu handles "Open file" and "Close file" (frees PDF resources properly). "Edit" and "Setting" are placeholders.
 - Page strip window calculated dynamically from actual `offsetWidth` of the strip element; `nextTick` awaited before reading `offsetWidth`
@@ -134,20 +134,21 @@ Activated automatically when device orientation is landscape. Detected via
 `window.matchMedia('(orientation: landscape)')` or the `resize` event.
 
 **Component structure:**
-- `PortraitView.vue` — single canvas, used in portrait
-- `LandscapeView.vue` — single wide spread canvas, used in landscape
-- The parent Viewer page conditionally renders one or the other based on
-  `isLandscape`
-- Both components use the same `usePdfRenderer` composable underneath
+- `PdfViewer.vue` — a single dynamic component that seamlessly handles both Portrait (single page) and Landscape (dual page spread) modes.
+- The parent Viewer page passes `isLandscape` down as a prop.
+- The single `<canvas>` element inside `PdfViewer.vue` is never unmounted during rotation, ensuring instantaneous, ghost-free transitions.
+- Note: `PortraitView.vue` and `LandscapeView.vue` were originally planned and implemented as separate components, but were later deleted from the project tree and consolidated into `PdfViewer.vue` to achieve seamless orientation transitions.
 
-**LandscapeView canvas:**
+**Landscape rendering:**
 - One canvas whose width = left page width + right page width, height = max of
   both page heights
 - Page N rendered into the left half; page N+1 rendered into the right half via
   `ctx.translate(leftPageWidth, 0)` before the second render call
 - Two page number indicators absolutely positioned over top-left and top-right
-  corners of the canvas (see indicator table above)
-- Pinch-to-zoom and pan apply to the whole spread canvas as one unit
+  corners of the canvas (see indicator table above).
+- If the document only has 1 page, only the left indicator and left half are rendered (centered).
+- Pinch-to-zoom and pan apply to the whole spread canvas as one unit.
+- The canvas container is strictly bounded via flexbox (`min-height: 0; min-width: 0;`) to prevent height leakage and clipping bugs during orientation changes.
 
 **Page pairing — normal mode:**
 - Current page always on the left, `currentPage + 1` on the right
@@ -355,16 +356,16 @@ Each phase produces something immediately testable as a PWA on the tablet.
 
 **Phase 1 — Vue port of prototype** (done)
 Behavioral parity with the HTML prototype in Vue 3 + Composition API. Establishes
-`usePdfRenderer`, `PageStrip.vue`, `TapZones.vue`, and `PortraitView.vue`.
+`usePdfRenderer`, `PageStrip.vue`, `TapZones.vue`, and the initial portrait view structure(`PortraitView.vue`).
 
 **Phase 2 — UI Refinement (Hamburger & Components)** (done)
 Replace Open button with hamburger menu (`HamburgerButton.vue`). Implement empty state tap-to-open (`EmptyIcon.vue`). Add `[Close file]` to free resources. Add Loop Mode toggle (`LoopModeButton.vue`). Extracted `TapZones` for future shared usage.
 
-**Phase 3 — Landscape mode (normal mode only)** (planned)
-Extract `LandscapeView.vue` with a single wide spread canvas. Detect orientation
+**Phase 3 — Landscape mode (normal mode only)** (done)
+Implement dual-page rendering logic using a single `PdfViewer.vue` component with a persistent canvas. Detect orientation
 via `matchMedia`. Implement `ctx.translate` two-page rendering. Add page number
 indicators. Implement landscape strip label logic for normal mode (`N-(N+1)` pairs).
-Implement lossless orientation transition. Sequence mode landscape is deferred to
+Implement lossless, instant orientation transition. Sequence mode landscape is deferred to
 Phase 8.
 
 **Phase 4 — Routing** (planned)
@@ -392,7 +393,7 @@ first occurrence match. Complete landscape sequence mode: last-step edge case, s
 pair strip labels, left/right indicators for sequence landscape.
 
 **Phase 9 — Pinch-to-zoom**
-Add pinch-to-zoom to both `PortraitView` and `LandscapeView` canvases. Decide
+Add pinch-to-zoom to the `PdfViewer.vue` canvas. Decide
 between native browser zoom or manual pointer-event implementation. Validate tap
 zone usability while zoomed.
 

@@ -28,6 +28,7 @@ const props = defineProps({
   fileLoaded: { type: Boolean, required: true },  // PDF 로드 여부
   burgerEaten: { type: Boolean, required: true },
   loopMode: { type: Boolean, required: true },
+  isLandscape: { type: Boolean, required: true },
 })
 
 const emit = defineEmits(['open-file', "close-file", 'go-to-page', "toggle-hamburger", "toggle-loop-mode"])
@@ -53,8 +54,14 @@ function recalcWindow() {
   const stripWidth = stripRef.value.offsetWidth
   const maxBtns = Math.max(1, Math.floor(stripWidth / BTN_WIDTH))
   const half = Math.floor((maxBtns - 1) / 2)
+  
+  let maxPage = props.totalPages
+  if (props.isLandscape && maxPage > 1) {
+    maxPage = maxPage - 1
+  }
+
   const start = Math.max(1, props.currentPage - half)
-  const end = Math.min(props.totalPages, start + maxBtns - 1)
+  const end = Math.min(maxPage, start + maxBtns - 1)
 
   windowStart.value = start
   windowEnd.value = end
@@ -66,7 +73,7 @@ function recalcWindow() {
  * nextTick → DOM 업데이트 후에 offsetWidth를 읽어야 정확한 값을 얻는다.
  */
 watch(
-  () => [props.currentPage, props.totalPages],
+  () => [props.currentPage, props.totalPages, props.isLandscape],
   () => {
     nextTick(recalcWindow)
   },
@@ -132,12 +139,12 @@ function closeFile() {
       <div ref="stripRef" class="page-strip">
         <button v-for="i in windowEnd - windowStart + 1" :key="windowStart + i - 1" class="strip-btn"
           :class="{ active: windowStart + i - 1 === currentPage }" @pointerdown.prevent="goTo(windowStart + i - 1)">
-          {{ windowStart + i - 1 }}
+          {{ isLandscape && (windowStart + i - 1 < totalPages) ? `${windowStart + i - 1}-${windowStart + i}` : windowStart + i - 1 }}
         </button>
       </div>
 
       <!-- 다음 페이지 화살표 (마지막 페이지에서는 비활성화) -->
-      <button class="strip-nav" :disabled="currentPage >= totalPages" @pointerdown.prevent="stripNext">
+      <button class="strip-nav" :disabled="isLandscape ? (totalPages > 1 ? currentPage >= totalPages - 1 : currentPage >= totalPages) : currentPage >= totalPages" @pointerdown.prevent="stripNext">
         ›
       </button>
     </div>

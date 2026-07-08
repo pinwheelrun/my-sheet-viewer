@@ -28,14 +28,32 @@
  * Phase 2에서 Vue Router가 추가되면 이 파일은 ViewerPage.vue로 이동하고,
  * App.vue는 <RouterView>만 렌더링하는 셸이 된다.
  */
-import { shallowRef } from 'vue'
+import { shallowRef, ref, onMounted, onUnmounted } from 'vue'
 
 import { usePdfRenderer } from './composables/usePdfRenderer.js'
 import { useHamburger } from './composables/useHamburger.js'
 
 import PageStrip from './components/PageStrip.vue'
-import PortraitView from './components/PortraitView.vue'
+import PdfViewer from './components/PdfViewer.vue'
 import TapZones from './components/TapZones.vue'
+
+// 화면 방향(Landscape) 감지
+const isLandscape = ref(window.matchMedia('(orientation: landscape)').matches)
+
+function updateOrientation(e) {
+  isLandscape.value = e.matches
+}
+
+let mql = null
+onMounted(() => {
+  mql = window.matchMedia('(orientation: landscape)')
+  mql.addEventListener('change', updateOrientation)
+  isLandscape.value = mql.matches
+})
+
+onUnmounted(() => {
+  if (mql) mql.removeEventListener('change', updateOrientation)
+})
 
 // shallowRef 소유 — usePdfRenderer가 이 ref들의 .value를 읽어 렌더링한다
 const canvasRef = shallowRef(null)     // PDF를 그릴 <canvas> 요소
@@ -59,7 +77,7 @@ const {
   goToPage,       // 특정 페이지로 이동
   prevPage,       // 이전 페이지
   nextPage,       // 다음 페이지
-} = usePdfRenderer(canvasRef, viewerWrapRef)
+} = usePdfRenderer(canvasRef, viewerWrapRef, isLandscape)
 
 const {
   burgerEaten,
@@ -74,16 +92,16 @@ const {
   -->
   <PageStrip :current-page="currentPage" :total-pages="totalPages" :file-loaded="fileLoaded" @open-file="openFile"
     @close-file="closeFile" @go-to-page="goToPage" :burger-eaten="burgerEaten" @toggle-hamburger="toggleHamburger"
-    :loop-mode="loopMode" @toggle-loop-mode="toggleLoopMode" />
+    :loop-mode="loopMode" @toggle-loop-mode="toggleLoopMode" :is-landscape="isLandscape" />
 
   <!--
     뷰어 영역: setter 함수를 통해 DOM 요소를 shallowRef에 연결한다.
-    PortraitView가 마운트되면 :ref 바인딩이 setter를 호출하고,
+    PdfViewer가 마운트되면 :ref 바인딩이 setter를 호출하고,
     usePdfRenderer가 해당 ref들의 .value를 읽어 렌더링한다.
   -->
   <div class="viewer-screen">
-    <PortraitView :set-canvas-el="setCanvasEl" :set-viewer-wrap-el="setViewerWrapEl" :file-loaded="fileLoaded"
-      :is-loading="isLoading" :current-page="currentPage" @open-file="openFile" />
+    <PdfViewer :set-canvas-el="setCanvasEl" :set-viewer-wrap-el="setViewerWrapEl" :file-loaded="fileLoaded"
+      :is-loading="isLoading" :current-page="currentPage" :total-pages="totalPages" :is-landscape="isLandscape" @open-file="openFile" />
 
     <!--
       탭 존: 화면 왼쪽에 위치하는 터치 영역 (이전/다음 페이지).
@@ -100,5 +118,7 @@ const {
   position: relative;
   flex: 1;
   display: flex;
+  min-height: 0;
+  min-width: 0;
 }
 </style>

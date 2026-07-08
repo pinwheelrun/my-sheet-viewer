@@ -7,13 +7,15 @@
  * UI에 직접 바인딩되는 값(currentPage, totalPages, fileLoaded, isLoading)만 ref()로 관리한다.
  *
  * 【사용법】
- * 호출하는 쪽(App.vue)에서 canvas와 뷰어 래퍼의 shallowRef를 전달한다:
+ * 호출하는 쪽(App.vue)에서 canvas와 뷰어 래퍼의 shallowRef, 화면 방향의 ref를 전달한다:
  *   const canvasRef = shallowRef(null)
  *   const viewerWrapRef = shallowRef(null)
- *   const { currentPage, ... } = usePdfRenderer(canvasRef, viewerWrapRef)
+ *   const isLandscape = ref(window.matchMedia('(orientation: landscape)').matches)
+ *   const { currentPage, ... } = usePdfRenderer(canvasRef, viewerWrapRef, isLandscape)
  *
  * @param {import('vue').ShallowRef<HTMLCanvasElement|null>} canvasRef  - PDF를 그릴 canvas 요소
  * @param {import('vue').ShallowRef<HTMLElement|null>} viewerWrapRef    - canvas를 감싸는 컨테이너 (크기 계산용)
+ * @param {import('vue').Ref<boolean>} isLandscapeRef                   - 현재 가로 모드인지 여부를 나타내는 반응형 상태
  */
 
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -27,7 +29,7 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import PDFWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 GlobalWorkerOptions.workerSrc = PDFWorker
 
-export function usePdfRenderer(canvasRef, viewerWrapRef) {
+export function usePdfRenderer(canvasRef, viewerWrapRef, isLandscapeRef) {
 
   /* ── 일반 변수 (Vue 반응성 밖) ── */
   let pdfDoc = null       // PDF.js 문서 객체 — 절대 ref()로 감싸지 않는다
@@ -297,17 +299,29 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
       return
     }
 
-    // canvas 2D 컨텍스트를 한 번만 획득하고 이후에는 캐싱된 값을 재사용한다.
+    // PdfViewer 단일 컴포넌트를 사용하므로 캔버스 엘리먼트가 교체되지 않는다.
+    // 2D 컨텍스트를 한 번만 획득하여 캐싱된 값을 재사용한다.
     // getContext('2d')는 같은 객체를 반환하지만, 매번 호출할 필요는 없다.
     if (!canvasCtx) {
       canvasCtx = canvas.getContext('2d')
     }
 
     let task = null
+    let pageL = null
+    let pageR = null
 
     try {
+      // 가로 모드이고 총 페이지가 1보다 크면 우측 페이지 번호를 계산한다.
+      // (단, num이 마지막 페이지면 왼쪽으로 한 칸 당겨서 강제로 두 장을 맞춘다.)
+      if (isLandscapeRef?.value && totalPages.value > 1 && num > totalPages.value - 1) {
+        num = totalPages.value - 1;
+      }
+
       // 비동기로 해당 페이지의 데이터(Proxy)를 가져온다.
-      const page = await pdfDoc.getPage(num)
+      pageL = await pdfDoc.getPage(num)
+      if (isLandscapeRef?.value && num + 1 <= totalPages.value) {
+        pageR = await pdfDoc.getPage(num + 1)
+      }
 
       // 그 사이 컴포넌트가 언마운트되거나 새 파일이 열렸으면 중단한다.
       if (disposed || token !== openToken) return
@@ -319,34 +333,57 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
        * 3) devicePixelRatio를 곱해서 고해상도 디스플레이에서 선명하게 렌더링한다.
        *    → canvas의 내부 해상도는 크게, CSS 표시 크기는 실제 픽셀로 설정.
        */
-      const vp0 = page.getViewport({ scale: 1 })
+      const vp0L = pageL.getViewport({ scale: 1 })
+      const vp0R = pageR ? pageR.getViewport({ scale: 1 }) : { width: 0, height: 0 }
+
+      const combinedWidth = vp0L.width + vp0R.width
+      const maxHeight = Math.max(vp0L.height, vp0R.height)
+
       const wrap = wrapEl.getBoundingClientRect()
 
       // 컨테이너 안에 딱 맞게 들어가도록 가로/세로 중 더 빡빡한 비율을 선택한다.
       const scale =
-        Math.min(wrap.width / vp0.width, wrap.height / vp0.height) *
+        Math.min(wrap.width / combinedWidth, wrap.height / maxHeight) *
         window.devicePixelRatio
 
       // 최종 스케일이 적용된 뷰포트 객체를 생성한다.
-      const vp = page.getViewport({ scale })
+      const vpL = pageL.getViewport({ scale })
+      const vpR = pageR ? pageR.getViewport({ scale }) : null
 
       // canvas 내부 해상도 (실제 픽셀 수)
-      canvas.width = vp.width
-      canvas.height = vp.height
+      canvas.width = vpL.width + (vpR ? vpR.width : 0)
+      canvas.height = Math.max(vpL.height, vpR ? vpR.height : 0)
       // canvas CSS 크기 (화면에 표시되는 크기) — devicePixelRatio로 나눠서 논리 픽셀로 변환
-      canvas.style.width = vp.width / window.devicePixelRatio + 'px'
-      canvas.style.height = vp.height / window.devicePixelRatio + 'px'
+      canvas.style.width = canvas.width / window.devicePixelRatio + 'px'
+      canvas.style.height = canvas.height / window.devicePixelRatio + 'px'
 
-      // 렌더 태스크를 생성하고 시작한다.
-      task = page.render({ canvasContext: canvasCtx, viewport: vp })
+      // 왼쪽 페이지 렌더 태스크를 생성하고 시작한다.
+      task = pageL.render({ canvasContext: canvasCtx, viewport: vpL })
       renderTask = task
 
       // 렌더링 완료를 기다린다.
       await task.promise
 
-      // 완료 후 전역 태스크 참조를 지우고 페이지 프록시를 정리한다.
+      // 완료 후 전역 태스크 참조를 지운다. (정리는 finally에서)
       if (renderTask === task) renderTask = null
-      page.cleanup()
+
+      // (가로 모드) 오른쪽 페이지 렌더 태스크를 생성하고 시작한다.
+      if (pageR && !disposed && token === openToken) {
+        canvasCtx.save()
+        try {
+          canvasCtx.translate(vpL.width, 0)
+          task = pageR.render({ canvasContext: canvasCtx, viewport: vpR })
+          renderTask = task
+
+          // 렌더링 완료를 기다린다.
+          await task.promise
+        } finally {
+          canvasCtx.restore()
+        }
+
+        // 완료 후 전역 태스크 참조를 지운다. (정리는 finally에서)
+        if (renderTask === task) renderTask = null
+      }
 
       // 렌더링이 성공적으로 끝나면 UI의 현재 페이지 번호를 업데이트한다.
       if (!disposed && token === openToken) {
@@ -358,6 +395,11 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
         console.error('Could not render PDF page:', err)
       }
     } finally {
+      // 예외가 발생하거나 return으로 일찍 빠져나가더라도
+      // 메모리 누수를 막기 위해 가져온 페이지의 리소스를 반드시 정리한다.
+      if (pageL) pageL.cleanup()
+      if (pageR) pageR.cleanup()
+
       if (renderTask === task) renderTask = null
       if (runId !== renderRunId) return
       rendering = false
@@ -380,12 +422,17 @@ export function usePdfRenderer(canvasRef, viewerWrapRef) {
   /** 지정한 페이지로 이동. 루프모드가 아닐 때는 범위를 벗어나면 무시한다. */
   function goToPage(n) {
     if (!pdfDoc) return
-    if (n < 1 || n > totalPages.value) {
+    let maxPage = totalPages.value;
+    if (isLandscapeRef?.value && maxPage > 1) {
+      maxPage = maxPage - 1;
+    }
+
+    if (n < 1 || n > maxPage) {
       if (!loopMode.value) {
         return;
       } else if (n < 1) {
-        n = totalPages.value;
-      } else if (n > totalPages.value) {
+        n = maxPage;
+      } else if (n > maxPage) {
         n = 1;
       }
     }
