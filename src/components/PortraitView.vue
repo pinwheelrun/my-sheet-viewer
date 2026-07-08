@@ -3,12 +3,11 @@
  * PortraitView.vue — 세로 모드 뷰어 영역.
  *
  * App.vue에서 추출한 뷰어 영역 컴포넌트.
- * canvas, 빈 상태, 로딩 오버레이, 탭 존을 포함한다.
+ * canvas, 빈 상태 안내 아이콘, 로딩 오버레이, 페이지 번호 표시기를 포함한다.
  *
  * 【추출 목적】
  * Phase 3에서 LandscapeView.vue가 추가되면, 부모(Viewer 페이지)가
  * 화면 방향에 따라 PortraitView 또는 LandscapeView를 조건부 렌더링한다.
- * App.vue에 직접 뷰어 영역을 두면 이 전환이 불가능하므로 분리한다.
  *
  * 【ref 전달 패턴: setter 함수】
  * canvas와 viewerWrap의 DOM 요소는 부모(App.vue)가 소유하는 shallowRef에 저장되어야 한다.
@@ -18,8 +17,8 @@
  * 해당 setter를 호출하여 DOM 요소를 부모의 shallowRef에 설정한다.
  *
  * 【컴포넌트 규칙: props down, emits up】
- * - 뷰어 상태(fileLoaded, isLoading, currentPage, totalPages)를 props로 받는다
- * - 탭 존에서 올라온 prev/next 이벤트를 그대로 부모에게 전달한다
+ * - 뷰어 상태(fileLoaded, isLoading, currentPage)를 props로 받는다.
+ * - 빈 상태 화면에서 파일을 여는 open-file 이벤트를 부모에게 전달한다.
  */
 import EmptyIcon from './atoms/EmptyIcon.vue';
 import PageIndicator from './atoms/PageIndicator.vue';
@@ -30,7 +29,6 @@ defineProps({
   fileLoaded: { type: Boolean, required: true },        // PDF 로드 여부
   isLoading: { type: Boolean, required: true },         // 로딩 오버레이 표시 여부
   currentPage: { type: Number, required: true },        // 현재 페이지 번호
-  totalPages: { type: Number, required: true },         // 총 페이지 수
 })
 
 defineEmits(["open-file"])

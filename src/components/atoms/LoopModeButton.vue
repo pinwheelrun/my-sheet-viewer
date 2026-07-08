@@ -1,6 +1,12 @@
 <script setup>
+/**
+ * LoopModeButton.vue — 루프 모드 토글 버튼 컴포넌트.
+ *
+ * 파일이 마지막 페이지일 때 다음 페이지로 넘어가면 
+ * 첫 페이지로 돌아가게 하는 루프 모드를 켜고 끄는 역할을 한다.
+ */
 const props = defineProps({
-    loopMode: { type: Boolean, required: true },
+    loopMode: { type: Boolean, required: true }, // 현재 루프 모드 활성화 여부
 })
 
 const emit = defineEmits(["toggle-loop-mode"]);
@@ -9,6 +15,7 @@ const emit = defineEmits(["toggle-loop-mode"]);
 <template>
     <button :class="`loop-btn${loopMode ? ' loop-btn-on' : ''}`" type="button"
         @pointerdown.stop.prevent="$emit('toggle-loop-mode')">
+        <!-- Infinity Loop Icon designed by Gemini (Public Domain) -->
         <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
                 d="M 7 8 C 3 8 2 10 2 12 C 2 14 3 16 7 16 C 11 16 13 8 17 8 C 21 8 22 10 22 12 C 22 14 21 16 17 16 C 13 16 11 8 7 8 Z"

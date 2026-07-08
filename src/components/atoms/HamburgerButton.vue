@@ -1,11 +1,18 @@
 <script setup>
+/**
+ * HamburgerButton.vue — 햄버거 메뉴 버튼 및 메뉴 패널 컴포넌트.
+ *
+ * 상단바 좌측에 위치하며, 파일 열기/닫기 및 편집/설정 화면으로의 
+ * 네비게이션(향후 구현)을 담당하는 메뉴를 표시한다.
+ */
 const props = defineProps({
-    fileLoaded: { type: Boolean, required: true },  // PDF 로드 여부
-    burgerEaten: { type: Boolean, required: true },
+    fileLoaded: { type: Boolean, required: true },  // PDF 로드 여부 (메뉴 항목 활성화 제어용)
+    burgerEaten: { type: Boolean, required: true }, // 메뉴 패널 열림 상태
 })
 
 const emit = defineEmits(['open-file', "close-file", "toggle-hamburger"])
 
+/** 미구현 기능 클릭 시 알림 표시 (추후 라우팅으로 대체 예정) */
 function alertInConstruction() {
     emit("toggle-hamburger");
     alert("TODO");

@@ -84,7 +84,7 @@ function handleNext() {
 <style scoped>
 /*
  * 탭존 공통 스타일.
- * position: absolute → 부모(.viewer-wrap)를 기준으로 배치.
+ * position: absolute → 부모 컨테이너(.viewer-screen)를 기준으로 배치.
  * touch-action: none → 브라우저의 기본 터치 동작(스크롤, 줌 등) 완전 비활성화.
  */
 .tap-zone {

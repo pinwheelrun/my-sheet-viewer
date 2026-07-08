@@ -4,8 +4,8 @@
  *
  * 이 컴포넌트의 역할:
  * 1. usePdfRenderer 컴포저블을 호출하여 PDF 렌더링 로직을 연결한다.
- * 2. PageStrip(상단바)과 PortraitView(뷰어 영역)에 상태와 이벤트를 전달한다.
- * 3. canvas와 뷰어 래퍼의 shallowRef를 소유하고, setter 함수를 PortraitView에 전달한다.
+ * 2. PageStrip(상단바)과 뷰어 스크린 영역(.viewer-screen)을 조합하여 화면을 구성한다.
+ * 3. canvas와 뷰어 래퍼의 shallowRef를 소유하고, setter 함수를 하위 뷰어 컴포넌트에 전달한다.
  *
  * 【shallowRef를 쓰는 이유】
  * canvas, div 같은 네이티브 DOM 요소는 Vue의 deep reactive proxy로 감싸면
@@ -16,11 +16,12 @@
  * Vue의 <script setup>에서 선언한 ref는 템플릿에서 자동으로 .value가 풀린다(auto-unwrap).
  * 따라서 :canvas-ref="canvasRef"로 전달하면 shallowRef 객체가 아닌 null이 전달된다.
  * 이를 우회하기 위해 setter 함수를 만들어 전달하면, 함수는 auto-unwrap되지 않으므로
- * PortraitView에서 :ref="setCanvasEl"로 사용하면 DOM 요소가 정상적으로 설정된다.
+ * 하위 컴포넌트에서 :ref="setCanvasEl"로 사용하면 DOM 요소가 정상적으로 설정된다.
  *
- * 【PortraitView 분리 이유】
- * Phase 3에서 LandscapeView가 추가되면, 여기서 화면 방향에 따라
- * PortraitView 또는 LandscapeView를 조건부 렌더링한다.
+ * 【TapZones 분리 이유】
+ * Phase 3에서 LandscapeView가 추가되고 화면 방향에 따라
+ * PortraitView 또는 LandscapeView를 조건부 렌더링할 때,
+ * 터치 영역(TapZones)은 두 뷰에서 공통으로 사용되므로 상위 컨테이너(.viewer-screen)로 분리하였다.
  * 현재는 PortraitView만 사용한다.
  *
  * 【향후 변경 예정】
@@ -82,7 +83,7 @@ const {
   -->
   <div class="viewer-screen">
     <PortraitView :set-canvas-el="setCanvasEl" :set-viewer-wrap-el="setViewerWrapEl" :file-loaded="fileLoaded"
-      :is-loading="isLoading" :current-page="currentPage" :total-pages="totalPages" @open-file="openFile" />
+      :is-loading="isLoading" :current-page="currentPage" @open-file="openFile" />
 
     <!--
       탭 존: 화면 왼쪽에 위치하는 터치 영역 (이전/다음 페이지).
