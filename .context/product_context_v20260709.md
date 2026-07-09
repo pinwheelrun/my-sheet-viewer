@@ -8,7 +8,7 @@ future features can be layered on without structural rework.
 
 ## What the App Is
 
-A personal PWA for viewing PDF music sheets on a tablet. The primary interaction
+A personal Native Android App for viewing PDF music sheets on a tablet. The primary interaction
 is reading sheet music during practice — the viewer must be distraction-free and
 reliable. Sequence management and global settings are secondary concerns handled
 in separate screens.
@@ -23,8 +23,7 @@ Viewer (/viewer)
     ↓ hamburger → Setting → Settings (/settings)
 ```
 
-All three screens will be part of the same PWA and share a single data layer. (Planned) Vue
-Router will manage navigation between them. Currently, the app is a single screen without a router.
+All three screens will be part of the same Android App and share a single data layer. (Planned) Vue Router will manage navigation between them. Currently, the app is a single screen without a router.
 The Vue port of the Viewer is in progress. Sequence Editor and Settings are planned next.
 
 ---
@@ -36,9 +35,9 @@ The full-screen PDF reader. Minimal UI, optimized for reading during practice.
 ### Current state
 
 - **Phase 1 (Vue Port) and Phase 2 (Hamburger/Components) completed.**
-- `App.vue` acts as the root layout (`.viewer-screen`), managing the `TapZones` to allow sharing between future views.
+- `App.vue` acts as the root layout (`.app-layout`), managing the `TapZones` to allow sharing between future views.
 - `PdfViewer.vue` handles the single persistent canvas which is scaled to `devicePixelRatio`. It also handles `EmptyIcon`, and `PageIndicator`. (Note: Originally designed as separate `PortraitView.vue` and `LandscapeView.vue` components, but consolidated for performance).
-- Top bar: Hamburger menu (`HamburgerButton.vue`), Loop Mode toggle (`LoopModeButton.vue`), dynamic page strip, total page count.
+- Navigation bar: Hamburger menu (`HamburgerButton.vue`), Loop Mode toggle (`LoopModeButton.vue`), dynamic page strip, total page count.
 - Hamburger menu handles "Open file" and "Close file" (frees PDF resources properly). "Edit" and "Setting" are placeholders.
 - Page strip window calculated dynamically from actual `offsetWidth` of the strip element; `nextTick` awaited before reading `offsetWidth`
 - Tap zones and strip visible only after a file is loaded.
@@ -46,11 +45,11 @@ The full-screen PDF reader. Minimal UI, optimized for reading during practice.
 - Per-zone debounce cooldown ~400ms (intentional policy for drumming).
 - Pending page queuing (rapid taps handled gracefully).
 - Empty state shows a placeholder icon that opens the file picker when tapped.
-- Installed as PWA on Android tablet via GitHub Pages.
+- Currently runs in a local dev server for testing (`npm run dev`).
 
 ### Planned additions
 
-- Mode toggle in the top bar: Normal mode vs Sequence mode (see Sequences below)
+- Mode toggle in the navigation bar: Normal mode vs Sequence mode (see Sequences below)
 - In Sequence mode the strip shows steps in order as page number labels; active
   step highlighted by position index, not page number value
 - External input device support: page turner pedals/remotes pair as Bluetooth
@@ -61,11 +60,16 @@ The full-screen PDF reader. Minimal UI, optimized for reading during practice.
 
 - View area shows a placeholder icon (`EmptyIcon.vue`)
 - Tapping the placeholder icon opens the system file picker directly
-- Top bar shows the Hamburger menu and loop toggle only; strip and page count are hidden
+- Navigation bar shows the Hamburger menu and loop toggle only; strip and page count are hidden
+
+### Navigation Bar
+
+- **Portrait Mode (Top Bar):** Anchored to the top of the screen (`56px` tall). Contains the Hamburger menu, Loop toggle, Page Strip (horizontal sliding window), and Total Pages indicator.
+- **Landscape Mode (Left Side Bar):** Moves to the left edge of the screen (`56px` wide) to maximize vertical space for the PDF canvas. Elements stack vertically. The Page Strip uses a vertical sliding window, and strip buttons become tall rectangles featuring a diagonal line separating the current and next page numbers.
 
 ### Hamburger menu
 
-Located in the top-left of the top bar (`HamburgerButton.vue`).
+Located at the start of the navigation bar (`HamburgerButton.vue`).
 
 | Item | Enabled when | Behavior |
 |---|---|---|
@@ -73,7 +77,7 @@ Located in the top-left of the top bar (`HamburgerButton.vue`).
 | `Close file` | File is open | Returns to empty state; frees all PDF resources |
 | `Edit` | File is open | (Planned) Navigates to `/editor` for the current file |
 | `Setting` | Always | (Planned) Navigates to `/settings` |
-| `Close app` | Always | (Capacitor Native Only) Exits the app via `App.exitApp()`. Hidden on PWA fallback. |
+| `Close app` | Always | (Capacitor Native Only) Exits the app via `App.exitApp()`. Hidden on web fallback (Phase 10). |
 
 ### Page number indicator
 
@@ -90,13 +94,13 @@ the actual page number regardless of mode or step index.
 
 ### Tap zones
 
-A small toggle button appears just below the top bar, overlaying the top-left
+A small toggle button appears adjacent to the navigation bar (below it in portrait, to its right in landscape), overlaying the top-left
 of the view area, only when a file is open. It fits within the `top: 3%` gap
 above the prev zone. Tapping it shows/hides the tap zones.
 
 **Left-vertical layout (default):**
 - Zone occupies left 40% of screen width, full height of view area
-- `tap-prev`: top 39% of zone height, with `top: 3%` gap from top bar
+- `tap-prev`: top 39% of zone height, with `top: 3%` gap from navigation bar
 - `tap-next`: remaining 45% of zone height, with `3%` gap between prev and next
 - Prev zone: green tint `rgba(80, 180, 120, 0.15)`
 - Next zone: blue tint `rgba(60, 130, 220, 0.15)`
@@ -203,7 +207,7 @@ Settings stored via `StorageService.js` (Vue Store) and flushed natively to `met
 | Left zone split | Number input | 39% | Height % of prev zone within left zone |
 | Bottom zone height | Number input | 20% | Height as % of screen height (bottom-horizontal only) |
 | Tap zone cooldown | Number input | 400ms | Debounce window per zone independently |
-| Strip button width | Number input | 56px | Width and height of each page strip button |
+| Strip button width | Number input | 56px | Width and height of each page strip button (Portrait only) |
 | Prev zone color | Color + opacity | Green 15% | `rgba` of the previous page zone |
 | Next zone color | Color + opacity | Blue 15% | `rgba` of the next page zone |
 
@@ -282,7 +286,7 @@ appear at multiple steps.
 
 1. Silently check if the local `metadata.json` exists in the native filesystem.
 2. If it does not exist (very first launch), present a welcome screen asking if the user has an existing backup file to import.
-3. If they choose **"Skip / New"**: The app silently creates a new, empty `metadata.json` natively and unlocks immediately.
+3. If they choose **"Skip / New"**: The app silently creates a default `metadata.json` skeleton natively and unlocks immediately.
 4. If they choose **"Import"**: The app opens a standard file picker. The user selects their backup JSON file (even if it's named differently, e.g., `metadata(1).json`). The app reads its contents and saves it natively as the permanent `metadata.json`, then unlocks.
 5. **Result:** A fully graceful onboarding experience without strict lock-outs.
 
@@ -356,7 +360,7 @@ appear at multiple steps.
 
 ## Recommended Implementation Order
 
-Each phase produces something immediately testable as a PWA on the tablet.
+Each phase produces something immediately testable natively on Android or via the local dev server.
 
 **Phase 1 — Vue port of prototype** (done)
 Behavioral parity with the HTML prototype in Vue 3 + Composition API. Establishes
@@ -368,18 +372,19 @@ Replace Open button with hamburger menu (`HamburgerButton.vue`). Implement empty
 **Phase 3 — Landscape mode (normal mode only)** (done)
 Implement dual-page rendering logic using a single `PdfViewer.vue` component with a persistent canvas. Detect orientation
 via `matchMedia`. Implement `ctx.translate` two-page rendering. Add page number
-indicators. Implement landscape strip label logic for normal mode (`N-(N+1)` pairs).
+indicators. Implement landscape strip with rectangular split buttons and diagonal line separators.
+Move navigation bar to the left edge in landscape mode to maximize vertical space.
 Implement lossless, instant orientation transition. Sequence mode landscape is deferred to
 Phase 6.
 
 **Phase 4 — Routing & Global Store** (planned)
-Add Vue Router with `/viewer`, `/editor`, `/settings` routes. Extract PDF state (`pdfDoc`, `currentPage`, etc.) into a Global Store. This ensures the parsed PDF stays in memory across route changes, enabling the Sequence Editor to reuse the exact same document for thumbnail generation.
+Add Vue Router with `/viewer`, `/editor`, `/settings` routes (must use Hash Routing for Capacitor compatibility). Extract PDF state (`pdfDoc`, `currentPage`, etc.) into a Global Store. This ensures the parsed PDF stays in memory across route changes, enabling the Sequence Editor to reuse the exact same document for thumbnail generation.
 
 **Phase 5 — Data layer (Capacitor Native, Android Only)**
 Wrap the Vue app in Ionic Capacitor to generate a native Android `.apk` (using free GitHub Actions cloud builds to avoid local Android Studio overhead). Abstract all storage logic into a single `StorageService.js`. Read/write directly to `metadata.json` using `@capacitor/filesystem` and populate a reactive Vue Store, completely bypassing IndexedDB/Dexie.js. Implement graceful first launch flow (silent creation or manual import). Hash computation on first file open, key lookup, default sequence creation.
 
 **Phase 6 — Sequence mode in Viewer + Landscape**
-Add normal/sequence mode toggle to the top bar. Wire sequence navigation into strip
+Add normal/sequence mode toggle to the navigation bar. Wire sequence navigation into strip
 and tap zones. Implement picker for multiple sequences. Handle mode switching with
 first occurrence match. Complete landscape sequence mode: last-step edge case, step
 pair strip labels, left/right indicators for sequence landscape.
@@ -399,24 +404,14 @@ between native browser zoom or manual pointer-event implementation. Validate tap
 zone usability while zoomed.
 
 **Phase 10 — iOS / Web Fallback Support**
-Add IndexedDB support inside `StorageService.js` to enable the app to run as a standard PWA in iOS Safari and desktop browsers. Wire up the manual export/import features to support iOS cache eviction mitigation.
+Add IndexedDB support inside `StorageService.js` to enable the app to run as a standard web app in iOS Safari and desktop browsers. Wire up the manual export/import features to support iOS cache eviction mitigation. Reactivate Vite PWA plugin.
 
 ---
 
-## PWA Requirements
-
-- Hosted on GitHub Pages (HTTPS) ✓
-- Service worker caches all app assets on install ✓
-- Fully offline after first install; PDF.js bundled via npm, not CDN ✓
-- `navigator.storage.persist()` requested on first launch for iOS durability
-- PDF files loaded from device filesystem, not the network
-
----
-
-## Platform Notes
+## Deployment & Platform Notes
 
 - **Primary target:** Android tablet (Native APK via Ionic Capacitor)
-- **Secondary target:** iPad (PWA fallback, deferred to Phase 10)
+- **Secondary target:** iPad (Web fallback, deferred to Phase 10)
 - By targeting Android native first via Capacitor, we bypass browser cache eviction and web File System API limitations entirely. Storage is permanent, and native filesystem plugins handle silent metadata saving.
 - The `.apk` will be built using a free GitHub Actions pipeline to avoid installing Android Studio locally.
 - External page turner devices pair as Bluetooth keyboards — no special API needed
