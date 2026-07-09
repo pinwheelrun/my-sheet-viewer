@@ -86,13 +86,14 @@ const {
 </script>
 
 <template>
-  <!--
-    상단바: PDF 열기 버튼 + 페이지 스트립.
-    Props down, emits up 원칙에 따라 상태는 props로, 동작은 이벤트로 전달.
-  -->
-  <PageStrip :current-page="currentPage" :total-pages="totalPages" :file-loaded="fileLoaded" @open-file="openFile"
-    @close-file="closeFile" @go-to-page="goToPage" :burger-eaten="burgerEaten" @toggle-hamburger="toggleHamburger"
-    :loop-mode="loopMode" @toggle-loop-mode="toggleLoopMode" :is-landscape="isLandscape" />
+  <div class="app-layout" :class="{ 'is-landscape': isLandscape }">
+    <!--
+      상단바: PDF 열기 버튼 + 페이지 스트립.
+      Props down, emits up 원칙에 따라 상태는 props로, 동작은 이벤트로 전달.
+    -->
+    <PageStrip :current-page="currentPage" :total-pages="totalPages" :file-loaded="fileLoaded" @open-file="openFile"
+      @close-file="closeFile" @go-to-page="goToPage" :burger-eaten="burgerEaten" @toggle-hamburger="toggleHamburger"
+      :loop-mode="loopMode" @toggle-loop-mode="toggleLoopMode" :is-landscape="isLandscape" />
 
   <!--
     뷰어 영역: setter 함수를 통해 DOM 요소를 shallowRef에 연결한다.
@@ -107,13 +108,23 @@ const {
       탭 존: 화면 왼쪽에 위치하는 터치 영역 (이전/다음 페이지).
       prev, next 이벤트를 받아 부모에게 그대로 전달한다.
     -->
-    <TapZones :file-loaded="fileLoaded" :current-page="currentPage" :total-pages="totalPages" @prev="prevPage"
-      @next="nextPage" />
+      <TapZones :file-loaded="fileLoaded" :current-page="currentPage" :total-pages="totalPages" @prev="prevPage"
+        @next="nextPage" />
+    </div>
   </div>
-
 </template>
 
 <style scoped>
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+.app-layout.is-landscape {
+  flex-direction: row;
+}
+
 .viewer-screen {
   position: relative;
   flex: 1;

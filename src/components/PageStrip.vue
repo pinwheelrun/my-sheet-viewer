@@ -38,8 +38,8 @@ const stripRef = shallowRef(null)  // 페이지 버튼들을 감싸는 <div>의 
 const windowStart = ref(1)         // 현재 윈도우의 시작 페이지 번호
 const windowEnd = ref(1)           // 현재 윈도우의 끝 페이지 번호
 
-// 버튼 하나의 차지 너비: 버튼 56px + gap 4px = 60px
-const BTN_WIDTH = 60
+const BTN_WIDTH_PORTRAIT = 60;   // 버튼 하나의 차지 너비: 버튼 56px + gap 4px = 60px
+const BTN_HEIGHT_LANDSCAPE = 60; // 버튼 하나의 차지 높이: 버튼 54px + gap 6px = 60px
 
 /**
  * 스트립 윈도우를 재계산한다.
@@ -51,10 +51,11 @@ const BTN_WIDTH = 60
 function recalcWindow() {
   if (!stripRef.value || props.totalPages === 0) return
 
-  const stripWidth = stripRef.value.offsetWidth
-  const maxBtns = Math.max(1, Math.floor(stripWidth / BTN_WIDTH))
+  const availableSpace = props.isLandscape ? stripRef.value.offsetHeight : stripRef.value.offsetWidth
+  const BTN_SIZE = props.isLandscape ? BTN_HEIGHT_LANDSCAPE : BTN_WIDTH_PORTRAIT;
+  const maxBtns = Math.max(1, Math.floor(availableSpace / BTN_SIZE))
   const half = Math.floor((maxBtns - 1) / 2)
-  
+
   let maxPage = props.totalPages
   if (props.isLandscape && maxPage > 1) {
     maxPage = maxPage - 1
@@ -138,13 +139,22 @@ function closeFile() {
       -->
       <div ref="stripRef" class="page-strip">
         <button v-for="i in windowEnd - windowStart + 1" :key="windowStart + i - 1" class="strip-btn"
-          :class="{ active: windowStart + i - 1 === currentPage }" @pointerdown.prevent="goTo(windowStart + i - 1)">
-          {{ isLandscape && (windowStart + i - 1 < totalPages) ? `${windowStart + i - 1}-${windowStart + i}` : windowStart + i - 1 }}
+          :class="{ active: windowStart + i - 1 === currentPage, 'is-landscape-btn': isLandscape }"
+          @pointerdown.prevent="goTo(windowStart + i - 1)">
+          <template v-if="isLandscape && (windowStart + i - 1 < totalPages)">
+            <span class="left-num">{{ windowStart + i - 1 }}</span>
+            <span class="right-num">{{ windowStart + i }}</span>
+          </template>
+          <template v-else>
+            {{ windowStart + i - 1 }}
+          </template>
         </button>
       </div>
 
       <!-- 다음 페이지 화살표 (마지막 페이지에서는 비활성화) -->
-      <button class="strip-nav" :disabled="isLandscape ? (totalPages > 1 ? currentPage >= totalPages - 1 : currentPage >= totalPages) : currentPage >= totalPages" @pointerdown.prevent="stripNext">
+      <button class="strip-nav"
+        :disabled="isLandscape ? (totalPages > 1 ? currentPage >= totalPages - 1 : currentPage >= totalPages) : currentPage >= totalPages"
+        @pointerdown.prevent="stripNext">
         ›
       </button>
     </div>
@@ -268,5 +278,75 @@ function closeFile() {
 .strip-btn:active {
   opacity: 0.7;
   /* 터치 피드백 */
+}
+
+/* ── 가로 모드 (좌측 사이드바) ── */
+@media (orientation: landscape) {
+  .topbar {
+    flex-direction: column;
+    width: 56px;
+    height: 100%;
+    padding: 12px 0;
+    gap: 8px;
+  }
+
+  .page-strip-wrap {
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+  }
+
+  .page-strip {
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .strip-btn.is-landscape-btn {
+    width: 28px;
+    /* Slightly narrower to fit padding */
+    height: 54px;
+    position: relative;
+    padding: 6px 4px;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
+  }
+
+  .strip-btn .left-num {
+    text-align: left;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .strip-btn .right-num {
+    text-align: right;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  /* 고정된 각도와 길이의 사선 (CSS 가상 요소 사용) */
+  .strip-btn.is-landscape-btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 24px;
+    /* 사선의 길이 */
+    height: 1.5px;
+    /* 사선의 두께 */
+    background-color: #777;
+    /* 선 색상 */
+    transform: translate(-50%, -50%) rotate(-65deg);
+    /* 정중앙 배치 및 고정 기울기 */
+    pointer-events: none;
+    border-radius: 1px;
+  }
+
+  .strip-nav {
+    transform: rotate(90deg);
+    /* Rotate arrows to point up/down */
+  }
 }
 </style>
